@@ -1,0 +1,50 @@
+{
+  "name": "birch-storage",
+  "version": "0.0.1",
+  "description": "JavaScript eventdriven storage",
+  "main": "index.js",
+  "scripts": {
+    "build": "babel src/ -d dist/",
+    "flow": "flow",
+    "test": "jest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bikalay/birch-storage.git"
+  },
+  "keywords": [
+    "localstorage",
+    "indexeddb",
+    "websql",
+    "storage"
+  ],
+  "author": "Alexandr Vovchuk",
+  "license": "MIT License",
+  "bugs": {
+    "url": "https://github.com/bikalay/birch-storage/issues"
+  },
+  "homepage": "https://github.com/bikalay/birch-storage#readme",
+  "devDependencies": {
+    "babel-cli": "6.26.0",
+    "babel-eslint": "8.2.1",
+    "babel-jest": "22.2.2",
+    "babel-plugin-dynamic-import-node": "1.2.0",
+    "babel-plugin-transform-decorators-legacy": "1.3.4",
+    "babel-plugin-transform-inline-environment-variables": "0.3.0",
+    "babel-preset-env": "1.6.1",
+    "babel-preset-stage-0": "6.24.1",
+    "eslint": "4.18.0",
+    "eslint-config-recommended": "^2.0.0",
+    "eslint-plugin-flowtype": "2.44.0",
+    "eslint-plugin-import": "2.8.0",
+    "eslint-plugin-jest": "21.12.1",
+    "eslint-plugin-jsx-a11y": "6.0.3",
+    "flow-bin": "0.66.0",
+    "flow-typed": "2.3.0",
+    "jest": "22.3.0"
+  },
+  "dependencies": {
+    "events": "2.0.0",
+    "uuid": "^3.2.1"
+  }
+}
