@@ -37,67 +37,130 @@ export class LocalStorageCollection implements ICollection {
     throw new Error('need override');
   }
 
-  updateIndexes(object: {[id: string]: any}) {
-    const keys = Object.keys(this.schema);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      if (this.schema[key].index) {
-        const value = object[key];
-        let ids = [];
-        const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${key}:${value}`;
-        const idsString = localStorage.getItem(indexKey);
-        if(idsString) {
-          ids = idsString.split(',');
-        }
-        ids.push(object[this.storage.options.idFieldName]);
-        localStorage.setItem(indexKey, ids.join(','));
-      }
-    }
+  updateCollectionIndex(itemId: string) {
     let ids = [];
     const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
     const idsString = localStorage.getItem(indexKey);
     if(idsString) {
       ids = idsString.split(',');
     }
-    ids.push(object[this.storage.options.idFieldName]);
+    const index = ids.indexOf(itemId);
+    if(index === -1) {
+      ids.push(itemId);
+      localStorage.setItem(indexKey, ids.join(','));
+    }
+  }
+
+  batchUpdateCollectionIndexs(itemsIds: Array<string>) {
+    let ids = [];
+    const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
+    const idsString = localStorage.getItem(indexKey);
+    if(idsString) {
+      ids = idsString.split(',');
+    }
+    itemsIds.forEach(itemId => {
+      const index = ids.indexOf(itemId);
+      if(index === -1) {
+        ids.push(itemId);
+      }
+    });
     localStorage.setItem(indexKey, ids.join(','));
   }
 
   create(data: any): Promise<any> {
     const insertObject: {[id: string]: any} = {};
     const keys = Object.keys(this.schema);
+    const idFieldName = this.storage.options.idFieldName;
+
+    let itemId = data[idFieldName];
+
+    if(!itemId) {
+      itemId = insertObject[idFieldName] = this.storage.generateId();
+    }
 
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
       const schemaField = this.schema[key];
       const field = data[key];
-      if (!field && schemaField.required && !schemaField.default) {
+      if (field === void(0) && schemaField.required && schemaField.default === void(0)) {
         return Promise.reject(new ValidationError(`Field ${key} is required`, key));
       }
-      if (!field && !schemaField.default) {
+      if (field === void(0) && schemaField.default !== void(0)) {
         if (typeof(schemaField.default) === 'function') {
           insertObject[key] = schemaField.default();
-        }
-        else {
+        } else {
           insertObject[key] = schemaField.default;
         }
       } else if(field) {
         insertObject[key] = field;
       }
-    }
-    let itemId = insertObject[this.storage.options.idFieldName];
-
-    if(!itemId) {
-      itemId = insertObject[this.storage.options.idFieldName] = this.storage.generateId();
+      if (schemaField.index) {
+        const value = insertObject[key];
+        let ids = [];
+        const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${key}:${value}`;
+        const idsString = localStorage.getItem(indexKey);
+        if(idsString) {
+          ids = idsString.split(',');
+        }
+        ids.push(itemId);
+        localStorage.setItem(indexKey, ids.join(','));
+      }
     }
 
     localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
-    this.updateIndexes(insertObject);
+    this.updateCollectionIndex(itemId);
     return Promise.resolve(insertObject);
   }
 
-  batchCreate(): Promise<Array<any>> {
+  batchCreate(array: Array<any>): Promise<Array<any>> {
+    const keys = Object.keys(this.schema);
+    const idFieldName = this.storage.options.idFieldName;
+    const result = [];
+    const _ids = [];
+    array.forEach((data) => {
+      const insertObject: {[id: string]: any} = {};
 
+      let itemId = data[idFieldName];
+
+      if(!itemId) {
+        itemId = insertObject[idFieldName] = this.storage.generateId();
+      }
+
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const schemaField = this.schema[key];
+        const field = data[key];
+        if (field === void(0) && schemaField.required && schemaField.default === void(0)) {
+          return Promise.reject(new ValidationError(`Field ${key} is required`, key));
+        }
+        if (field === void(0) && schemaField.default !== void(0)) {
+          if (typeof(schemaField.default) === 'function') {
+            insertObject[key] = schemaField.default();
+          } else {
+            insertObject[key] = schemaField.default;
+          }
+        } else if(field) {
+          insertObject[key] = field;
+        }
+        if (schemaField.index) {
+          const value = insertObject[key];
+          let ids = [];
+          const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${key}:${value}`;
+          const idsString = localStorage.getItem(indexKey);
+          if(idsString) {
+            ids = idsString.split(',');
+          }
+          ids.push(itemId);
+          localStorage.setItem(indexKey, ids.join(','));
+        }
+      }
+      localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
+      result.push(insertObject);
+      _ids.push(itemId);
+    });
+
+    this.batchUpdateCollectionIndexs(_ids);
+    return Promise.resolve(result);
   }
 
   update(query: any, data: any): Promise<any> {
@@ -112,6 +175,19 @@ export class LocalStorageCollection implements ICollection {
 
   remove(query: any): Promise<any> {
     throw new Error('need override');
+  }
+
+  clear() {
+    /*let ids = [];
+    const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
+    const idsString = localStorage.getItem(indexKey);
+    if(idsString) {
+      ids = idsString.split(',');
+    }
+    ids.forEach((id) => {
+      const key = `birch:${this.storage.storageName}:${this.name}:${id}`;
+      localStorage.removeItem(key);
+    });*/
   }
 }
 

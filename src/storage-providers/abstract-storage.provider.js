@@ -17,7 +17,6 @@ export type CollectionField = {
 
 export type CollectionSchema = {[id: string]: CollectionField}
 
-
 export interface ICollection {
   find(query: any, options?: ?QueryOptions): Promise<Array<any>>;
   findOne(query: any, options?: ?QueryOptions): Promise<any>;
@@ -53,6 +52,7 @@ export class AbstractStorageProvider implements IStorageProvider {
     };
   }
 
+  // TODO: add incremental id
   generateId(): string {
     switch(this.options.idFieldType) {
       case 'objectid':
