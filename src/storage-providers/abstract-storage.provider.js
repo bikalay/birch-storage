@@ -1,5 +1,5 @@
 /* @flow */
-import EventEmitter from 'events';
+
 import uuid from 'uuid';
 
 import { generateObjectId } from '../utils/mogodb-objectid.generator';
@@ -19,9 +19,13 @@ export type CollectionSchema = {[id: string]: CollectionField}
 
 
 export interface ICollection {
-  select(query: any, options?: ?QueryOptions): Promise<any>;
-  insert(data: any): Promise<any>;
+  find(query: any, options?: ?QueryOptions): Promise<Array<any>>;
+  findOne(query: any, options?: ?QueryOptions): Promise<any>;
+  findById(id: string): Promise<any>;
+  create(data: any): Promise<any>;
+  batchCreate(data: any): Promise<any>;
   update(query: any, data: any): Promise<any>;
+  batchUpdate(query: any, data: any): Promise<Array<any>>;
   remove(query: any): Promise<any>;
 }
 
@@ -30,7 +34,7 @@ export interface IStorageProvider {
   createCollection(collectionName: string, schems: CollectionSchema): ICollection;
 }
 
-export class AbstractStorageProvider extends EventEmitter implements IStorageProvider {
+export class AbstractStorageProvider implements IStorageProvider {
   storageName: string;
   storageVersion: number;
   options: {idFieldName: string, idFieldType: 'guid' | 'objectid' };
@@ -40,7 +44,6 @@ export class AbstractStorageProvider extends EventEmitter implements IStoragePro
   }
 
   constructor(storageName: string, storageVersion: number, options?: StorageOptions = {}) {
-    super();
     this.storageName = storageName;
     this.storageVersion = storageVersion;
 

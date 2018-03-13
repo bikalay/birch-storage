@@ -18,18 +18,52 @@ export class LocalStorageCollection implements ICollection {
     this.storage = storage;
   }
 
-  select(query: any, options?: ?QueryOptions): Promise<any> {
+  find(query: any, options?: ?QueryOptions): Promise<Array<any>> {
+    const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
+    const idsString = localStorage.getItem(indexKey);
+    if(idsString) {
+      const ids = idsString.split(',');
+      const items = ids.map((itemId) => localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`));
+      return Promise.resolve(items);
+    }
+    return Promise.resolve([]);
+  }
+
+  findOne(query: any, options?: ?QueryOptions): Promise<any> {
+    throw new Error('need override');
+  }
+
+  findById(query: any, options?: ?QueryOptions): Promise<Array<any>> {
     throw new Error('need override');
   }
 
   updateIndexes(object: {[id: string]: any}) {
     const keys = Object.keys(this.schema);
     for (let i = 0; i < keys.length; i++) {
-
+      const key = keys[i];
+      if (this.schema[key].index) {
+        const value = object[key];
+        let ids = [];
+        const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${key}:${value}`;
+        const idsString = localStorage.getItem(indexKey);
+        if(idsString) {
+          ids = idsString.split(',');
+        }
+        ids.push(object[this.storage.options.idFieldName]);
+        localStorage.setItem(indexKey, ids.join(','));
+      }
     }
+    let ids = [];
+    const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
+    const idsString = localStorage.getItem(indexKey);
+    if(idsString) {
+      ids = idsString.split(',');
+    }
+    ids.push(object[this.storage.options.idFieldName]);
+    localStorage.setItem(indexKey, ids.join(','));
   }
 
-  insert(data: any): Promise<any> {
+  create(data: any): Promise<any> {
     const insertObject: {[id: string]: any} = {};
     const keys = Object.keys(this.schema);
 
@@ -58,12 +92,23 @@ export class LocalStorageCollection implements ICollection {
     }
 
     localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
+    this.updateIndexes(insertObject);
     return Promise.resolve(insertObject);
+  }
+
+  batchCreate(): Promise<Array<any>> {
+
   }
 
   update(query: any, data: any): Promise<any> {
     throw new Error('need override');
   }
+
+
+  batchUpdate(query: any, data: any): Promise<Array<any>> {
+    throw new Error('need override');
+  }
+
 
   remove(query: any): Promise<any> {
     throw new Error('need override');
@@ -80,6 +125,7 @@ export class LocalStorageProvider extends AbstractStorageProvider {
 
   constructor(storageName: string, storageVersion: number) {
     super(storageName, storageVersion);
+    this.collections = {};
     const storageProps = this.getStorageProperties();
     if (storageProps) {
       if (storageProps.version > this.storageVersion) {
@@ -93,7 +139,7 @@ export class LocalStorageProvider extends AbstractStorageProvider {
   }
 
   createCollection(collectionName: string, schema: CollectionSchema): ICollection {
-    return this.collections[collectionName] = new LocalStorageCollection(collectionName, schema);
+    return this.collections[collectionName] = new LocalStorageCollection(this, collectionName, schema);
   }
 
   getStorageProperties(): ?LocalStorageProperties {
