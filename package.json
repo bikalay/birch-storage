@@ -34,7 +34,6 @@
     "babel-plugin-transform-inline-environment-variables": "0.3.0",
     "babel-preset-env": "1.6.1",
     "babel-preset-flow": "^6.23.0",
-    "babel-preset-stage-0": "6.24.1",
     "eslint": "4.18.0",
     "eslint-config-recommended": "2.0.0",
     "eslint-plugin-flowtype": "2.44.0",
