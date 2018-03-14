@@ -4,12 +4,12 @@ const storage = createStorage('test',6);
 const collection = storage.createCollection('users', {
   name: {
     type: 'string',
-    index: true,
+    //index: true,
     required: true,
   },
   age: {
     type: 'number',
-    index: true,
+    //index: true,
     required: true
   }
 });

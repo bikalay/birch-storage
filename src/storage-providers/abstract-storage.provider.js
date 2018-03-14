@@ -22,7 +22,7 @@ export interface ICollection {
   findOne(query: any, options?: ?QueryOptions): Promise<any>;
   findById(id: string): Promise<any>;
   create(data: any): Promise<any>;
-  batchCreate(data: any): Promise<any>;
+  batchCreate(data: any): Promise<Array<any>>;
   update(query: any, data: any): Promise<any>;
   batchUpdate(query: any, data: any): Promise<Array<any>>;
   remove(query: any): Promise<any>;

@@ -33,8 +33,8 @@ export class LocalStorageCollection implements ICollection {
     throw new Error('need override');
   }
 
-  findById(query: any, options?: ?QueryOptions): Promise<Array<any>> {
-    throw new Error('need override');
+  findById(id: string, options?: ?QueryOptions): Promise<any> {
+    return Promise.resolve(localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`));
   }
 
   updateCollectionIndex(itemId: string) {

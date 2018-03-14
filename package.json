@@ -30,6 +30,7 @@
     "babel-jest": "22.2.2",
     "babel-plugin-dynamic-import-node": "1.2.0",
     "babel-plugin-transform-decorators-legacy": "1.3.4",
+    "babel-plugin-transform-es2015-modules-commonjs": "6.26.0",
     "babel-plugin-transform-inline-environment-variables": "0.3.0",
     "babel-preset-env": "1.6.1",
     "babel-preset-flow": "^6.23.0",
@@ -60,5 +61,10 @@
       "babel-runtime": "npm:babel-runtime@^5.8.24",
       "core-js": "npm:core-js@^1.1.4"
     }
+  },
+  "jest": {
+    "verbose": true,
+    "coveragePathIgnorePatterns": ["/node_modules/", "/jspm_packages/"],
+    "testPathIgnorePatterns": ["/node_modules/", "/jspm_packages/"]
   }
 }
