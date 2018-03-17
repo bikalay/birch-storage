@@ -1,11 +1,10 @@
 /* @flow */
 /* global localStorage:false */
+/* global setTimeout:false */
 
-import { ValidationError } from '../errors/validation.error';
-import type { CollectionSchema, ICollection, QueryOptions } from './abstract-storage.provider';
-import { AbstractStorageProvider  } from './abstract-storage.provider';
-
-export type LocalStorageProperties = { version: number };
+import { ValidationError } from '../../errors/validation.error';
+import type { QueryOptions, ICollection, CollectionSchema } from '../abstract-storage.provider';
+import { LocalStorageProvider } from './localstorage.provider';
 
 export class LocalStorageCollection implements ICollection {
   name: string;
@@ -68,48 +67,54 @@ export class LocalStorageCollection implements ICollection {
   }
 
   create(data: any): Promise<any> {
-    const insertObject: {[id: string]: any} = {};
-    const keys = Object.keys(this.schema);
-    const idFieldName = this.storage.options.idFieldName;
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const insertObject: {[id: string]: any} = {};
+        const keys = Object.keys(this.schema);
+        const idFieldName = this.storage.options.idFieldName;
 
-    let itemId = data[idFieldName];
+        let itemId = data[idFieldName];
 
-    if(!itemId) {
-      itemId = insertObject[idFieldName] = this.storage.generateId();
-    }
-
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      const schemaField = this.schema[key];
-      const field = data[key];
-      if (field === void(0) && schemaField.required && schemaField.default === void(0)) {
-        return Promise.reject(new ValidationError(`Field ${key} is required`, key));
-      }
-      if (field === void(0) && schemaField.default !== void(0)) {
-        if (typeof(schemaField.default) === 'function') {
-          insertObject[key] = schemaField.default();
-        } else {
-          insertObject[key] = schemaField.default;
+        if(!itemId) {
+          itemId = insertObject[idFieldName] = this.storage.generateId();
         }
-      } else if(field) {
-        insertObject[key] = field;
-      }
-      if (schemaField.index) {
-        const value = insertObject[key];
-        let ids = [];
-        const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${key}:${value}`;
-        const idsString = localStorage.getItem(indexKey);
-        if(idsString) {
-          ids = idsString.split(',');
-        }
-        ids.push(itemId);
-        localStorage.setItem(indexKey, ids.join(','));
-      }
-    }
 
-    localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
-    this.updateCollectionIndex(itemId);
-    return Promise.resolve(insertObject);
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          const schemaField = this.schema[key];
+          const field = data[key];
+          if ((field === void(0) || field === null || field === '')
+            && schemaField.required
+            && schemaField.default === void(0)) {
+            return reject(new ValidationError(`Field ${key} is required`, key));
+          }
+          if (field === void(0) && schemaField.default !== void(0)) {
+            if (typeof(schemaField.default) === 'function') {
+              insertObject[key] = schemaField.default();
+            } else {
+              insertObject[key] = schemaField.default;
+            }
+          } else if(field) {
+            insertObject[key] = field;
+          }
+          if (schemaField.index) {
+            const value = insertObject[key];
+            let ids = [];
+            const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${key}:${value}`;
+            const idsString = localStorage.getItem(indexKey);
+            if(idsString) {
+              ids = idsString.split(',');
+            }
+            ids.push(itemId);
+            localStorage.setItem(indexKey, ids.join(','));
+          }
+        }
+
+        localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
+        this.updateCollectionIndex(itemId);
+        resolve(insertObject);
+      }, 0);
+    });
   }
 
   batchCreate(array: Array<any>): Promise<Array<any>> {
@@ -188,49 +193,5 @@ export class LocalStorageCollection implements ICollection {
       const key = `birch:${this.storage.storageName}:${this.name}:${id}`;
       localStorage.removeItem(key);
     });*/
-  }
-}
-
-export class LocalStorageProvider extends AbstractStorageProvider {
-
-  collections: {[id: string]: LocalStorageCollection};
-
-  static check(): boolean {
-    return typeof(Storage) !== 'undefined';
-  }
-
-  constructor(storageName: string, storageVersion: number) {
-    super(storageName, storageVersion);
-    this.collections = {};
-    const storageProps = this.getStorageProperties();
-    if (storageProps) {
-      if (storageProps.version > this.storageVersion) {
-        throw new Error('You try to create storage with version less than current');
-      }
-      if (storageProps.version < this.storageVersion) {
-        this.clear();
-        localStorage.setItem(`birch:${this.storageName}:properties`, JSON.stringify({version: storageVersion}))
-      }
-    }
-  }
-
-  createCollection(collectionName: string, schema: CollectionSchema): ICollection {
-    return this.collections[collectionName] = new LocalStorageCollection(this, collectionName, schema);
-  }
-
-  getStorageProperties(): ?LocalStorageProperties {
-    const propsString = localStorage.getItem(`birch:${this.storageName}:properties`);
-    if (propsString) {
-      return JSON.parse(propsString);
-    }
-  }
-
-  clear() {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.indexOf(`birch:${this.storageName}:`) > -1) {
-        localStorage.removeItem(key);
-      }
-    }
   }
 }

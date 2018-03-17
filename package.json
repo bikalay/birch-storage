@@ -34,6 +34,7 @@
     "babel-plugin-transform-inline-environment-variables": "0.3.0",
     "babel-preset-env": "1.6.1",
     "babel-preset-flow": "^6.23.0",
+    "babel-preset-stage-0": "6.24.1",
     "eslint": "4.18.0",
     "eslint-config-recommended": "2.0.0",
     "eslint-plugin-flowtype": "2.44.0",
@@ -42,7 +43,8 @@
     "eslint-plugin-jsx-a11y": "6.0.3",
     "flow-bin": "0.66.0",
     "flow-typed": "2.3.0",
-    "jest": "22.3.0"
+    "jest": "22.3.0",
+    "jest-localstorage-mock": "2.2.0"
   },
   "dependencies": {
     "uuid": "3.2.1"
@@ -63,7 +65,16 @@
   },
   "jest": {
     "verbose": true,
-    "coveragePathIgnorePatterns": ["/node_modules/", "/jspm_packages/"],
-    "testPathIgnorePatterns": ["/node_modules/", "/jspm_packages/"]
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/jspm_packages/"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/jspm_packages/"
+    ],
+    "setupFiles": [
+      "jest-localstorage-mock"
+    ]
   }
 }

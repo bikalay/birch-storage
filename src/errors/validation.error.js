@@ -5,5 +5,6 @@ export class ValidationError extends Error {
   constructor(errorMessage: string, fieldName: string) {
     super(errorMessage);
     this.fieldName = fieldName;
+    this.name = 'ValidationError';
   }
 }

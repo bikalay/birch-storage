@@ -3,7 +3,8 @@
   "env": {
     "test": {
       "presets":[
-        ["env", { "modules": false }]
+        ["env", { "modules": false }],
+        "stage-0"
       ],
       "plugins": [
         "transform-es2015-modules-commonjs",
