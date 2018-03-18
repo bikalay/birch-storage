@@ -1,7 +1,7 @@
 import { createStorage } from '../../src';
-import { ValidationError } from '../../src/errors/validation.error';
 import { AbstractStorageProvider } from '../../src/storage-providers/abstract-storage.provider';
-import { LocalStorageCollection, LocalStorageProvider } from './localstorage/localstorage.provider';
+import { LocalStorageProvider } from '../../src/storage-providers/localstorage/localstorage.provider';
+import { LocalStorageCollection } from '../../src/storage-providers/localstorage/localstorage.collection';
 
 jest.useFakeTimers();
 
@@ -88,8 +88,41 @@ describe('LocalStorageProvider', () => {
     jest.runAllTimers();
   });
 
+  test('LocalStorageCollection batch create', async () => {
+    const storage = createStorage('test_storage', 6, ['localstorage']);
+
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string',
+        required: true
+      },
+      age: {
+        type: 'number',
+        default: 20,
+        index: true
+      }
+    });
+
+    const arr = [];
+    expect.assertions(4);
+    arr.push({name: 'Ivan', age: 30});
+    arr.push({name: 'Igor', age: 28});
+    arr.push({name: 'Petr', age: 45});
+    arr.push({name: 'John', age: 20});
+    usersCollection.batchCreate(arr).then(() => {
+      usersCollection.find({}).then((result) => {
+        expect(result.length).toBe(4);
+        expect(typeof (result[0].name)).toBe('string');
+        expect(typeof (result[1].age)).toBe('number');
+        expect(typeof (result[2].uuid)).toBe('string');
+      });
+      jest.runAllTimers();
+    });
+    jest.runAllTimers();
+  });
+
   test('LocalStorageCollection create with custom id', async () => {
-    const storage = createStorage('test_storage', 6, ['localstorage'], {idFieldName: '_id', idFieldType: 'objectid'});
+    const storage = createStorage('test_storage', 7, ['localstorage'], {idFieldName: '_id', idFieldType: 'objectid'});
 
     const usersCollection = storage.createCollection('users', {
       name: {
@@ -110,7 +143,162 @@ describe('LocalStorageProvider', () => {
     jest.runAllTimers();
   });
 
-  test('LocalStorageCollection select all from collection', () => {
-
+  test('LocalStorageCollection find all from collection', () => {
+    const storage = createStorage('test_storage', 8, ['localstorage']);
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string'
+      },
+      age: {
+        type: 'number'
+      }
+    });
+    const actionsArr = [];
+    expect.assertions(4);
+    actionsArr.push(usersCollection.create({name: 'Ivan', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Igor', age: 28}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 45}));
+    actionsArr.push(usersCollection.create({name: 'John', age: 20}));
+    Promise.all(actionsArr).then(() => {
+      usersCollection.find({}).then((result) => {
+        expect(result.length).toBe(4);
+        expect(typeof (result[0].name)).toBe('string');
+        expect(typeof (result[1].age)).toBe('number');
+        expect(typeof (result[2].uuid)).toBe('string');
+      });
+      jest.runAllTimers();
+    });
+    jest.runAllTimers();
   });
+
+  test('LocalStorageCollection find by index', () => {
+    const storage = createStorage('test_storage', 9, ['localstorage']);
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string',
+        index: true,
+      },
+      age: {
+        type: 'number',
+        index: true,
+      }
+    });
+    const actionsArr = [];
+    expect.assertions(7);
+    actionsArr.push(usersCollection.create({name: 'Ivan', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Igor', age: 28}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 45}));
+    actionsArr.push(usersCollection.create({name: 'John', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 63}));
+    Promise.all(actionsArr).then(() => {
+      usersCollection.find({name: 'Ivan'}).then((result) => {
+        expect(result.length).toBe(1);
+        expect(result[0].name).toBe('Ivan');
+        expect(result[0].age).toBe(30);
+        expect(typeof (result[0].uuid)).toBe('string');
+      });
+      usersCollection.find({age: 30}).then((result) => {
+        expect(result.length).toBe(2);
+        const ivan = result.find(user => user.name === 'Ivan');
+        expect(ivan.age).toBe(30);
+        const john = result.find(user => user.name === 'John');
+        expect(john.age).toBe(30)
+      });
+      jest.runAllTimers();
+    });
+    jest.runAllTimers();
+  });
+
+  test('LocalStorageCollection find by id', () => {
+    const storage = createStorage('test_storage', 10, ['localstorage']);
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string',
+      },
+      age: {
+        type: 'number',
+        index: true,
+      }
+    });
+    const actionsArr = [];
+    expect.assertions(2);
+    actionsArr.push(usersCollection.create({name: 'Ivan', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Igor', age: 28}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 45}));
+    actionsArr.push(usersCollection.create({name: 'John', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 63}));
+    Promise.all(actionsArr).then((results) => {
+      const id1 = results[0].uuid;
+      usersCollection.find({uuid: id1}).then((result) => {
+        expect(result.length).toBe(1);
+        expect(result[0].uuid).toBe(id1);
+      });
+      jest.runAllTimers();
+    });
+    jest.runAllTimers();
+  });
+
+  test('LocalStorageCollection find by few indexes', () => {
+    const storage = createStorage('test_storage', 11, ['localstorage']);
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string',
+        index: true,
+      },
+      age: {
+        type: 'number',
+        index: true,
+      }
+    });
+    const actionsArr = [];
+    expect.assertions(4);
+    actionsArr.push(usersCollection.create({name: 'Ivan', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Igor', age: 28}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 45}));
+    actionsArr.push(usersCollection.create({name: 'Ivan', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'John', age: 30}));
+    actionsArr.push(usersCollection.create({name: 'Petr', age: 63}));
+    Promise.all(actionsArr).then(() => {
+      usersCollection.find({age: 30, name: 'Ivan'}).then((result) => {
+        expect(result.length).toBe(2);
+        expect(result[0].name).toBe('Ivan');
+        expect(result[0].age).toBe(30);
+        expect(typeof (result[0].uuid)).toBe('string');
+      });
+      jest.runAllTimers();
+    });
+    jest.runAllTimers();
+  });
+
+  test('LocalStorageCollection findById', () => {
+    const storage = createStorage('test_storage', 12, ['localstorage']);
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string',
+        index: true,
+      },
+      age: {
+        type: 'number',
+      }
+    });
+    const arr = [];
+    expect.assertions(2);
+    arr.push({name: 'Ivan', age: 30});
+    arr.push({name: 'Igor', age: 28});
+    arr.push({name: 'Petr', age: 45});
+    arr.push({name: 'John', age: 20});
+    usersCollection.batchCreate(arr).then(results => {
+      const id = results[0].uuid;
+      usersCollection.findById(id).then(result => {
+        expect(result.name).toBe('Ivan');
+        expect(result.uuid).toBe(id);
+      });
+      jest.runAllTimers();
+    });
+    jest.runAllTimers();
+  });
+
 });
+
+
+
