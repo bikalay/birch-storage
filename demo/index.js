@@ -1,6 +1,6 @@
 import { createStorage } from '../lib/index';
 
-const storage = createStorage('test', 51);
+const storage = createStorage('test', 55);
 const collection = storage.createCollection('users', {
   name: {
     type: 'string',
@@ -37,7 +37,7 @@ Promise.all(arr).then(() => {
 
 console.time('batchcreate 1000');
 const arr2 = [];
-for(let i=1; i<10000; i++) {
+for(let i=1; i<10; i++) {
   arr2.push({name:'name'+i, age: i});
 }
 console.time('onlybatchcreate 1000');
@@ -46,6 +46,11 @@ collection.batchCreate(arr2).then(() => {
   console.timeEnd('batchcreate 1000');
   console.log(localStorage.length);
 });
+console.log('!!!!!!!(1)!!!!!!!!!');
+collection.findById().then(()=>{
+  console.log('!!!!!!!(3)!!!!!!!!!');
+});
+console.log('!!!!!!!(2)!!!!!!!!!');
 
 
 

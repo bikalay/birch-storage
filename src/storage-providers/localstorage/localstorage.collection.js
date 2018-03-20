@@ -29,67 +29,73 @@ export class LocalStorageCollection implements ICollection {
     throw new Error('To search add index on this field before');
   }
 
+  getIdsByQuery(query: any = {}): Array<string> {
+    const queryKeys = Object.keys(query);
+    let result = [];
+    const itemId = query[this.storage.options.idFieldName];
+    if (itemId) {
+      result = [itemId];
+    } else if (queryKeys.length === 0) {
+      const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
+      const idsString = localStorage.getItem(indexKey);
+      if(idsString) {
+        result = idsString.split(',');
+      }
+    } else {
+      queryKeys.forEach((key, index) => {
+        const ids = this.getKeysByIndex(key, query[key]);
+        if (index === 0) {
+          result = ids;
+        } else {
+          result = ids.filter(id => result.indexOf(id) > -1);
+        }
+      });
+    }
+    return result;
+  }
+
   find(query: any, options?: ?QueryOptions): Promise<Array<any>> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        const queryKeys = Object.keys(query);
         const items = [];
-        const itemId = query[this.storage.options.idFieldName];
-        if (queryKeys.length === 0) {
-          const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
-          const idsString = localStorage.getItem(indexKey);
-          if(idsString) {
-            const ids = idsString.split(',');
-            ids.forEach((itemId) => {
-              const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`);
-              if(result) {
-                items.push(JSON.parse(result));
-              }
-            });
-            return resolve(items);
+        const ids = this.getIdsByQuery(query);
+        ids.forEach(id => {
+          const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
+          if(result) {
+            items.push(JSON.parse(result));
           }
-        } else if (itemId) {
-          const item = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`);
-          if (item) {
-            return resolve([JSON.parse(item)]);
-          }
-        } else {
-          let resultIds = [];
-          queryKeys.forEach((key, index) => {
-            const ids = this.getKeysByIndex(key, query[key]);
-            if (index === 0) {
-              resultIds = ids;
-            } else {
-              resultIds = ids.filter(id => resultIds.indexOf(id) > -1);
-            }
-          });
-          resultIds.forEach((itemId) => {
-            const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`);
-            if(result) {
-              items.push(JSON.parse(result));
-            }
-          });
-          return resolve(items);
-        }
+        });
         return resolve(items);
       }, 0);
     });
   }
 
-  findOne(query: any, options?: ?QueryOptions): Promise<any> {
-    throw new Error('need override');
+  findOne(query: any, options?: ?QueryOptions): Promise<?any> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const ids = this.getIdsByQuery(query);
+        if (ids.length) {
+          const id = ids[0];
+          const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
+          if (result) {
+            return resolve(JSON.parse(result));
+          }
+        }
+        return resolve();
+      }, 0);
+    });
   }
 
-  findById(id: string, options?: ?QueryOptions): Promise<any> {
-    return new Promise(resolve => {
-      setTimeout(() => {
+  findById(id: string, options?: ?QueryOptions): Promise<?any> {
+    return new Promise((resolve) => {
+      //setTimeout(() => {
         const item = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
         if (item) {
           return resolve(JSON.parse(item));
         }
         resolve();
-      }, 0);
-    })
+      //}, 0);
+    });
   }
 
   updateCollectionIndex(itemId: string) {
@@ -122,12 +128,13 @@ export class LocalStorageCollection implements ICollection {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         const insertObject: {[id: string]: any} = {};
-
         let itemId = data[idFieldName];
 
         if(!itemId) {
-          itemId = insertObject[idFieldName] = this.storage.generateId();
+          itemId = this.storage.generateId();
         }
+
+        insertObject[idFieldName] = itemId;
 
         for (let i = 0; i < keys.length; i++) {
           const key = keys[i];
@@ -207,16 +214,16 @@ export class LocalStorageCollection implements ICollection {
     throw new Error('need override');
   }
 
+  count(query: any): Promise<number> {
+    return new Promise(resolve => resolve(this.getIdsByQuery(query).length));
+  }
+
   clear() {
-    /*let ids = [];
-    const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
-    const idsString = localStorage.getItem(indexKey);
-    if(idsString) {
-      ids = idsString.split(',');
+    for (let i = localStorage.length-1; i >= 0 ; i--) {
+      const key = localStorage.key(i);
+      if (key && key.indexOf(`birch:${this.storage.storageName}:${this.name}:`) > -1) {
+        localStorage.removeItem(key);
+      }
     }
-    ids.forEach((id) => {
-      const key = `birch:${this.storage.storageName}:${this.name}:${id}`;
-      localStorage.removeItem(key);
-    });*/
   }
 }

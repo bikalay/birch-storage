@@ -26,6 +26,7 @@ export interface ICollection {
   update(query: any, data: any): Promise<any>;
   batchUpdate(query: any, data: any): Promise<Array<any>>;
   remove(query: any): Promise<any>;
+  count(query: any): Promise<number>;
 }
 
 export interface IStorageProvider {
