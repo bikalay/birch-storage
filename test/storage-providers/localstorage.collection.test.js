@@ -293,7 +293,7 @@ describe('LocalStorageCollection', () => {
     arr.push({name: 'Petr', age: 45});
     arr.push({name: 'John', age: 20});
     arr.push({name: 'Mark', age: 20});
-    usersCollection.batchCreate(arr).then(results => {
+    return usersCollection.batchCreate(arr).then(results => {
       expect(results.length).toBe(5);
       usersCollection.count({}).then((count) => {
         expect(count).toBe(5);
@@ -320,22 +320,30 @@ describe('LocalStorageCollection', () => {
     });
 
     const arr = [];
-    expect.assertions(5);
-    arr.push({name: 'John', age: 30});
+    expect.assertions(7);
+
+    const knownId = '5911bfc0-c622-4985-a56f-7d97cc48aa84';
+    arr.push({name: 'John', age: 30, uuid: knownId});
     arr.push({name: 'Igor', age: 28});
     arr.push({name: 'Petr', age: 45});
     arr.push({name: 'John', age: 20});
     arr.push({name: 'Mark', age: 20});
-    usersCollection.batchCreate(arr).then(results => {
+    return usersCollection.batchCreate(arr).then(results => {
       expect(results.length).toBe(5);
-      usersCollection.remove({name: 'John'}).then((result) => {
+      return usersCollection.remove({name: 'John'}).then(result => {
         expect(result.count).toBe(2);
-        usersCollection.count({}).then((count) => {
+        return usersCollection.count({}).then(count => {
           expect(count).toBe(3);
-          usersCollection.remove({}).then((result) => {
-            expect(result.count).toBe(3);
-            usersCollection.count({}).then((count) => {
+          return usersCollection.findById(knownId).then(item => {
+            expect(item).toBe(undefined);
+            return usersCollection.count({name: 'John'}).then(count => {
               expect(count).toBe(0);
+              return usersCollection.remove({}).then(result => {
+                expect(result.count).toBe(3);
+                return usersCollection.count({}).then(count => {
+                  expect(count).toBe(0);
+                });
+              });
             });
           });
         });

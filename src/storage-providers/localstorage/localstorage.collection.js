@@ -9,11 +9,39 @@ export class LocalStorageCollection implements ICollection {
   name: string;
   schema: CollectionSchema;
   storage: LocalStorageProvider;
+  indexes: Array<string> = [];
 
   constructor(storage: LocalStorageProvider, name: string, schema: CollectionSchema) {
     this.name = name;
     this.schema = schema;
     this.storage = storage;
+    this.__collectIndexes(this.schema);
+  }
+
+  __collectIndexes(schema: any, fieldName?: string) {
+    const keys = Object.keys(schema);
+    keys.forEach(key => {
+      const field = schema[key];
+      const fieldPath = fieldName ? fieldName.split('.') : [];
+      fieldPath.push(key);
+      fieldName = fieldPath.join('.');
+      if (!field.type && Object.prototype.toString.call(field) === '[object Object]') {
+        this.__collectIndexes(field, fieldName);
+      }
+      else if (field.index) {
+        this.indexes.push(fieldName);
+      }
+    });
+  }
+
+  __getValueByIndex(item: any, index: string) {
+    const indexPath = index.split('.');
+    const fieldName = indexPath.shift();
+    const value = item[fieldName];
+    if (indexPath.length === 0) {
+      return value;
+    }
+    return this.__getValueByIndex(value, indexPath.join('.'));
   }
 
   getKeysByIndex(field: string, value: any) {
@@ -213,7 +241,25 @@ export class LocalStorageCollection implements ICollection {
       }
 
       ids.forEach(id => {
-        localStorage.removeItem(id);
+        const itemKey = `birch:${this.storage.storageName}:${this.name}:${id}`;
+        const strItem = localStorage.getItem(itemKey);
+        if(strItem) {
+          const item = JSON.parse(strItem);
+          this.indexes.forEach(index => {
+            const value = this.__getValueByIndex(item, index);
+            const indexesKey = `birch:${this.storage.storageName}:${this.name}:index:${index}:${value}`;
+            const indexesStr = localStorage.getItem(indexesKey);
+            if (indexesStr) {
+              const indexKeys = indexesStr.split(',');
+              const i = indexKeys.indexOf(id);
+              if (i > -1) {
+                indexKeys.splice(i, 1);
+                localStorage.setItem(indexesKey, indexKeys.join(','));
+              }
+            }
+          });
+        }
+        localStorage.removeItem(itemKey);
         const i = indexes.indexOf(id);
         if (i > -1) {
           indexes.splice(i, 1);
@@ -228,12 +274,15 @@ export class LocalStorageCollection implements ICollection {
     return new Promise(resolve => resolve(this.getIdsByQuery(query).length));
   }
 
-  clear() {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.indexOf(`birch:${this.storage.storageName}:${this.name}:`) > -1) {
-        localStorage.removeItem(key);
+  clear(): Promise<null> {
+    return new Promise(resolve => {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.indexOf(`birch:${this.storage.storageName}:${this.name}:`) > -1) {
+          localStorage.removeItem(key);
+        }
       }
-    }
+      resolve(null);
+    });
   }
 }
