@@ -350,4 +350,47 @@ describe('LocalStorageCollection', () => {
       });
     });
   });
+
+  test('LocalStorageCollection nested object', async () => {
+    const storage = createStorage('test_storage', 14, ['localstorage']);
+
+    const usersCollection = storage.createCollection('users', {
+      name: {
+        type: 'string',
+        required: true,
+        index: true
+      },
+      age: {
+        type: 'number',
+        default: 20
+      },
+      member: {
+        organization: {
+          name: {
+            type: 'string',
+            required: true,
+          }
+        }
+      }
+    });
+
+    const arr = [];
+    expect.assertions(2);
+
+    const knownId = '5911bfc0-c622-4985-a56f-7d97cc48aa84';
+    arr.push({name: 'John', age: 30, uuid: knownId, member: {organization: {name: 'Org1'}}});
+    arr.push({name: 'Igor', age: 28, member: {organization: {name: 'Org1'}}});
+    arr.push({name: 'Petr', age: 45, member: {organization: {name: 'Org2'}}});
+    arr.push({name: 'John', age: 20, member: {organization: {name: 'Org2'}}});
+    arr.push({name: 'Mark', age: 20, member: {organization: {name: 'Org1'}}});
+    return usersCollection.batchCreate(arr).then(results => {
+      expect(results.length).toBe(5);
+      return usersCollection.findById(knownId).then(result =>{
+        console.log(JSON.stringify(result));
+        return usersCollection.find({'member.organization.name': 'Org1'}).then(result => {
+          expect(result.length).toBe(3);
+        });
+      })
+    });
+  });
 });

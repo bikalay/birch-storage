@@ -44,7 +44,7 @@ export class LocalStorageCollection implements ICollection {
     return this.__getValueByIndex(value, indexPath.join('.'));
   }
 
-  getKeysByIndex(field: string, value: any) {
+  __getKeysByIndex(field: string, value: any) {
     if (this.schema[field] && this.schema[field].index) {
       const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${field}:${value.toString()}`;
       const idsString = localStorage.getItem(indexKey);
@@ -56,7 +56,7 @@ export class LocalStorageCollection implements ICollection {
     throw new Error('To search add index on this field before');
   }
 
-  getIdsByQuery(query: any = {}): Array<string> {
+  __getIdsByQuery(query: any = {}): Array<string> {
     const queryKeys = Object.keys(query);
     let result = [];
     const itemId = query[this.storage.options.idFieldName];
@@ -70,7 +70,7 @@ export class LocalStorageCollection implements ICollection {
       }
     } else {
       queryKeys.forEach((key, index) => {
-        const ids = this.getKeysByIndex(key, query[key]);
+        const ids = this.__getKeysByIndex(key, query[key]);
         if (index === 0) {
           result = ids;
         } else {
@@ -81,45 +81,7 @@ export class LocalStorageCollection implements ICollection {
     return result;
   }
 
-  find(query: any, options?: ?QueryOptions): Promise<Array<any>> {
-    return new Promise((resolve) => {
-      const items = [];
-      const ids = this.getIdsByQuery(query);
-      ids.forEach(id => {
-        const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
-        if (result) {
-          items.push(JSON.parse(result));
-        }
-      });
-      return resolve(items);
-    });
-  }
-
-  findOne(query: any, options?: ?QueryOptions): Promise<?any> {
-    return new Promise((resolve) => {
-      const ids = this.getIdsByQuery(query);
-      if (ids.length) {
-        const id = ids[0];
-        const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
-        if (result) {
-          return resolve(JSON.parse(result));
-        }
-      }
-      return resolve();
-    });
-  }
-
-  findById(id: string, options?: ?QueryOptions): Promise<?any> {
-    return new Promise((resolve) => {
-      const item = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
-      if (item) {
-        return resolve(JSON.parse(item));
-      }
-      resolve();
-    });
-  }
-
-  updateCollectionIndex(itemId: string) {
+  __updateCollectionIndex(itemId: string) {
     let ids = [];
     const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
     const idsString = localStorage.getItem(indexKey);
@@ -133,7 +95,7 @@ export class LocalStorageCollection implements ICollection {
     }
   }
 
-  updateIndex(object: { [id: string]: any }, field: string, itemId: string) {
+  __updateIndex(object: { [id: string]: any }, field: string, itemId: string) {
     const value = object[field];
     let ids = [];
     const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${field}:${value}`;
@@ -145,7 +107,7 @@ export class LocalStorageCollection implements ICollection {
     localStorage.setItem(indexKey, ids.join(','));
   }
 
-  insertItem(data: any, keys: Array<string>, idFieldName: string): Promise<any> {
+  __insertItem(data: any, keys: Array<string>, idFieldName: string): Promise<any> {
     return new Promise((resolve, reject) => {
       const insertObject: { [id: string]: any } = {};
       let itemId = data[idFieldName];
@@ -173,7 +135,7 @@ export class LocalStorageCollection implements ICollection {
           insertObject[key] = field;
         }
         if (schemaField.index) {
-          this.updateIndex(insertObject, key, itemId);
+          this.__updateIndex(insertObject, key, itemId);
         }
       }
       localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
@@ -181,7 +143,7 @@ export class LocalStorageCollection implements ICollection {
     });
   }
 
-  batchUpdateCollectionIndexs(itemsIds: Array<string>) {
+  __batchUpdateCollectionIndexs(itemsIds: Array<string>) {
     let ids = [];
     const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
     const idsString = localStorage.getItem(indexKey);
@@ -197,11 +159,49 @@ export class LocalStorageCollection implements ICollection {
     localStorage.setItem(indexKey, ids.join(','));
   }
 
+  find(query: any, options?: ?QueryOptions): Promise<Array<any>> {
+    return new Promise((resolve) => {
+      const items = [];
+      const ids = this.__getIdsByQuery(query);
+      ids.forEach(id => {
+        const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
+        if (result) {
+          items.push(JSON.parse(result));
+        }
+      });
+      return resolve(items);
+    });
+  }
+
+  findOne(query: any, options?: ?QueryOptions): Promise<?any> {
+    return new Promise((resolve) => {
+      const ids = this.__getIdsByQuery(query);
+      if (ids.length) {
+        const id = ids[0];
+        const result = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
+        if (result) {
+          return resolve(JSON.parse(result));
+        }
+      }
+      return resolve();
+    });
+  }
+
+  findById(id: string, options?: ?QueryOptions): Promise<?any> {
+    return new Promise((resolve) => {
+      const item = localStorage.getItem(`birch:${this.storage.storageName}:${this.name}:${id}`);
+      if (item) {
+        return resolve(JSON.parse(item));
+      }
+      resolve();
+    });
+  }
+
   create(data: any): Promise<any> {
     const keys = Object.keys(this.schema);
     const idFieldName = this.storage.options.idFieldName;
-    return this.insertItem(data, keys, idFieldName).then((insertObject) => {
-      this.updateCollectionIndex(insertObject[idFieldName]);
+    return this.__insertItem(data, keys, idFieldName).then((insertObject) => {
+      this.__updateCollectionIndex(insertObject[idFieldName]);
       return insertObject;
     });
   }
@@ -210,11 +210,11 @@ export class LocalStorageCollection implements ICollection {
     const keys = Object.keys(this.schema);
     const idFieldName = this.storage.options.idFieldName;
     const ids = [];
-    return Promise.all(array.map(data => this.insertItem(data, keys, idFieldName).then((insertObject) => {
+    return Promise.all(array.map(data => this.__insertItem(data, keys, idFieldName).then((insertObject) => {
       ids.push(insertObject[idFieldName]);
       return insertObject;
     }))).then((results) => {
-      this.batchUpdateCollectionIndexs(ids);
+      this.__batchUpdateCollectionIndexs(ids);
       return results;
     });
   }
@@ -231,7 +231,7 @@ export class LocalStorageCollection implements ICollection {
 
   remove(query: any): Promise<any> {
     return new Promise(resolve => {
-      const ids = this.getIdsByQuery(query);
+      const ids = this.__getIdsByQuery(query);
       const indexKey = `birch:${this.storage.storageName}:${this.name}:index`;
       const idsString = localStorage.getItem(indexKey);
       let indexes = [];
@@ -271,7 +271,7 @@ export class LocalStorageCollection implements ICollection {
   }
 
   count(query: any): Promise<number> {
-    return new Promise(resolve => resolve(this.getIdsByQuery(query).length));
+    return new Promise(resolve => resolve(this.__getIdsByQuery(query).length));
   }
 
   clear(): Promise<null> {
