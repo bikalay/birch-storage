@@ -15,23 +15,25 @@ export class LocalStorageCollection implements ICollection {
     this.name = name;
     this.schema = schema;
     this.storage = storage;
-    this.__collectIndexes(this.schema);
+    this.indexes = this.__collectIndexes(this.schema);
   }
 
-  __collectIndexes(schema: any, fieldName?: string) {
+  __collectIndexes(schema: any, fieldName?: ?string, indexes?: Array<string> =[]): Array<string> {
     const keys = Object.keys(schema);
+    const inputFieldName = fieldName;
     keys.forEach(key => {
       const field = schema[key];
       const fieldPath = fieldName ? fieldName.split('.') : [];
       fieldPath.push(key);
       fieldName = fieldPath.join('.');
-      if (!field.type && Object.prototype.toString.call(field) === '[object Object]') {
-        this.__collectIndexes(field, fieldName);
+      if (Object.prototype.toString.call(field) === '[object Object]' && !field.type) {
+        return this.__collectIndexes(field, fieldName, indexes);
+      } else if (field.index) {
+        indexes.push(fieldName);
       }
-      else if (field.index) {
-        this.indexes.push(fieldName);
-      }
+      fieldName = inputFieldName;
     });
+    return indexes
   }
 
   __getValueByIndex(item: any, index: string) {
@@ -45,15 +47,12 @@ export class LocalStorageCollection implements ICollection {
   }
 
   __getKeysByIndex(field: string, value: any) {
-    if (this.schema[field] && this.schema[field].index) {
       const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${field}:${value.toString()}`;
       const idsString = localStorage.getItem(indexKey);
       if (idsString) {
         return idsString.split(',');
       }
       return [];
-    }
-    throw new Error('To search add index on this field before');
   }
 
   __getIdsByQuery(query: any = {}): Array<string> {
@@ -95,16 +94,18 @@ export class LocalStorageCollection implements ICollection {
     }
   }
 
-  __updateIndex(object: { [id: string]: any }, field: string, itemId: string) {
-    const value = object[field];
-    let ids = [];
-    const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${field}:${value}`;
-    const idsString = localStorage.getItem(indexKey);
-    if (idsString) {
-      ids = idsString.split(',');
-    }
-    ids.push(itemId);
-    localStorage.setItem(indexKey, ids.join(','));
+  __updateIndex(object: { [id: string]: any }, itemId: string) {
+    this.indexes.forEach(index => {
+      const value = this.__getValueByIndex(object, index);
+      let ids = [];
+      const indexKey = `birch:${this.storage.storageName}:${this.name}:index:${index}:${value}`;
+      const idsString = localStorage.getItem(indexKey);
+      if (idsString) {
+        ids = idsString.split(',');
+      }
+      ids.push(itemId);
+      localStorage.setItem(indexKey, ids.join(','));
+    });
   }
 
   __insertItem(data: any, keys: Array<string>, idFieldName: string): Promise<any> {
@@ -134,14 +135,18 @@ export class LocalStorageCollection implements ICollection {
         } else if (field) {
           insertObject[key] = field;
         }
-        if (schemaField.index) {
-          this.__updateIndex(insertObject, key, itemId);
-        }
       }
       localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
       return resolve(insertObject);
     });
   }
+
+  /*__applyField(key: string, value: any, object: any = {}): any {
+    if (Object.prototype.toString.call(value) === '[object Object]' && !value.type) {
+
+    }
+  }*/
+
 
   __batchUpdateCollectionIndexs(itemsIds: Array<string>) {
     let ids = [];
@@ -202,6 +207,7 @@ export class LocalStorageCollection implements ICollection {
     const idFieldName = this.storage.options.idFieldName;
     return this.__insertItem(data, keys, idFieldName).then((insertObject) => {
       this.__updateCollectionIndex(insertObject[idFieldName]);
+      this.__updateIndex(insertObject, insertObject[idFieldName]);
       return insertObject;
     });
   }
@@ -212,6 +218,7 @@ export class LocalStorageCollection implements ICollection {
     const ids = [];
     return Promise.all(array.map(data => this.__insertItem(data, keys, idFieldName).then((insertObject) => {
       ids.push(insertObject[idFieldName]);
+      this.__updateIndex(insertObject, insertObject[idFieldName]);
       return insertObject;
     }))).then((results) => {
       this.__batchUpdateCollectionIndexs(ids);

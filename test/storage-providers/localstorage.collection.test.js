@@ -352,7 +352,7 @@ describe('LocalStorageCollection', () => {
   });
 
   test('LocalStorageCollection nested object', async () => {
-    const storage = createStorage('test_storage', 14, ['localstorage']);
+    const storage = createStorage('test_storage', 15, ['localstorage']);
 
     const usersCollection = storage.createCollection('users', {
       name: {
@@ -368,7 +368,7 @@ describe('LocalStorageCollection', () => {
         organization: {
           name: {
             type: 'string',
-            required: true,
+            index: true,
           }
         }
       }
@@ -385,12 +385,32 @@ describe('LocalStorageCollection', () => {
     arr.push({name: 'Mark', age: 20, member: {organization: {name: 'Org1'}}});
     return usersCollection.batchCreate(arr).then(results => {
       expect(results.length).toBe(5);
-      return usersCollection.findById(knownId).then(result =>{
-        console.log(JSON.stringify(result));
-        return usersCollection.find({'member.organization.name': 'Org1'}).then(result => {
-          expect(result.length).toBe(3);
-        });
-      })
+      return usersCollection.find({'member.organization.name': 'Org1'}).then(result => {
+        expect(result.length).toBe(3);
+      });
     });
+  });
+
+  test('LocalStorageCollection __collectIndexes', () => {
+    let indexes = LocalStorageCollection.prototype.__collectIndexes({
+      name: {type: 'string', index: true},
+      age: {type: 'number'},
+      company: {name: {type: 'string', index: true}}
+    });
+    expect(indexes.length).toBe(2);
+    expect(indexes[0]).toBe('name');
+    expect(indexes[1]).toBe('company.name');
+    indexes = LocalStorageCollection.prototype.__collectIndexes({
+      name: {
+        first: {type: 'string', index: true},
+        last: {type: 'string', index: true}
+      },
+      age: {type: 'number'},
+      company: {name: {type: 'string', index: true}}
+    });
+    expect(indexes.length).toBe(3);
+    expect(indexes[0]).toBe('name.first');
+    expect(indexes[1]).toBe('name.last');
+    expect(indexes[2]).toBe('company.name');
   });
 });
