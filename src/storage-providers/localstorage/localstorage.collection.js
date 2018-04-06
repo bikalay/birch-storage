@@ -10,11 +10,15 @@ export class LocalStorageCollection implements ICollection {
   schema: CollectionSchema;
   storage: LocalStorageProvider;
   indexes: Array<string> = [];
+  idFieldName: string;
+  idFieldType: string;
 
-  constructor(storage: LocalStorageProvider, name: string, schema: CollectionSchema) {
+  constructor(storage: LocalStorageProvider, name: string, schema: CollectionSchema, options: any = {}) {
     this.name = name;
     this.schema = schema;
     this.storage = storage;
+    this.idFieldName = options.idFieldName || storage.options.idFieldName;
+    this.idFieldType = options.idFieldType || storage.options.idFieldType;
     this.indexes = this.__collectIndexes(this.schema);
   }
 
@@ -58,7 +62,7 @@ export class LocalStorageCollection implements ICollection {
   __getIdsByQuery(query: any = {}): Array<string> {
     const queryKeys = Object.keys(query);
     let result = [];
-    const itemId = query[this.storage.options.idFieldName];
+    const itemId = query[this.idFieldName];
     if (itemId) {
       result = [itemId];
     } else if (queryKeys.length === 0) {
@@ -109,44 +113,47 @@ export class LocalStorageCollection implements ICollection {
   }
 
   __insertItem(data: any, keys: Array<string>, idFieldName: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const insertObject: { [id: string]: any } = {};
+    return new Promise((resolve) => {
+      const insertObject: { [id: string]: any } = this.__applyObject(data, this.schema);
       let itemId = data[idFieldName];
-
       if (!itemId) {
         itemId = this.storage.generateId();
       }
-
       insertObject[idFieldName] = itemId;
-
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        const schemaField = this.schema[key];
-        const field = data[key];
-        if ((field === void(0) || field === '') && schemaField.required && schemaField.default === void(0)) {
-          return reject(new ValidationError(`Field ${key} is required`, key));
-        }
-        if (field === void(0) && schemaField.default !== void(0)) {
-          if (typeof(schemaField.default) === 'function') {
-            insertObject[key] = schemaField.default();
-          } else {
-            insertObject[key] = schemaField.default;
-          }
-        } else if (field) {
-          insertObject[key] = field;
-        }
-      }
       localStorage.setItem(`birch:${this.storage.storageName}:${this.name}:${itemId}`, JSON.stringify(insertObject));
       return resolve(insertObject);
     });
   }
 
-  /*__applyField(key: string, value: any, object: any = {}): any {
-    if (Object.prototype.toString.call(value) === '[object Object]' && !value.type) {
-
-    }
-  }*/
-
+  __applyObject(object: any = {}, schema: any, insertObject: any = {}): any {
+    const keys = Object.keys(schema);
+    keys.forEach(key => {
+      const schemaField = schema[key];
+      const objectField = object[key];
+      if (!schemaField.type
+        && Object.prototype.toString.call(schemaField) === '[object Object]'
+        && Object.prototype.toString.call(objectField) === '[object Object]'
+      ) {
+        const insertObjectField = insertObject[key] = {};
+        return this.__applyObject(objectField, schemaField, insertObjectField);
+      } else if(schemaField.type) {
+        if ((objectField === void(0) || objectField === '' || objectField === null)
+          && schemaField.required && schemaField.default === void(0)) {
+          throw new ValidationError(`Field ${key} is required`, key);
+        }
+        if (objectField === void(0) && schemaField.default !== void(0)) {
+          if (typeof(schemaField.default) === 'function') {
+            insertObject[key] = schemaField.default();
+          } else {
+            insertObject[key] = schemaField.default;
+          }
+        } else if (objectField) {
+          insertObject[key] = objectField;
+        }
+      }
+    });
+    return insertObject;
+  }
 
   __batchUpdateCollectionIndexs(itemsIds: Array<string>) {
     let ids = [];
@@ -204,7 +211,7 @@ export class LocalStorageCollection implements ICollection {
 
   create(data: any): Promise<any> {
     const keys = Object.keys(this.schema);
-    const idFieldName = this.storage.options.idFieldName;
+    const idFieldName = this.idFieldName;
     return this.__insertItem(data, keys, idFieldName).then((insertObject) => {
       this.__updateCollectionIndex(insertObject[idFieldName]);
       this.__updateIndex(insertObject, insertObject[idFieldName]);

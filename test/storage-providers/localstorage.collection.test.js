@@ -386,6 +386,7 @@ describe('LocalStorageCollection', () => {
     return usersCollection.batchCreate(arr).then(results => {
       expect(results.length).toBe(5);
       return usersCollection.find({'member.organization.name': 'Org1'}).then(result => {
+        console.log(result);
         expect(result.length).toBe(3);
       });
     });
